@@ -129,6 +129,7 @@ def render():
     with tab_barang:
         cats=db.query("SELECT id,nama FROM kategori ORDER BY nama")
         with st.expander("＋ Tambah inventaris",expanded=False):
+            st.caption("Kode barang disimpan unik di data inventaris dan otomatis dibentuk dari kategori serta nomor urut (contoh: AUD-001). Satu kode mewakili satu jenis barang; jumlah unit dicatat pada kolom Jumlah, sedangkan unit yang sama tetap memakai kode yang sama.")
             if cats:
                 cat=st.selectbox("Kategori",cats,format_func=lambda x:x["nama"],key="inventory_category")
                 kode_berikut=db.next_inventory_code(cat["id"])
@@ -179,14 +180,22 @@ def render():
         if rows:
             _render_inventory_table(rows)
         else: st.info("Belum ada inventaris.")
-        with st.expander("Hapus inventaris"):
-            opts=db.query("SELECT id,kode,nama FROM inventaris ORDER BY nama")
+        with st.expander("Status inventaris"):
+            st.caption("Barang yang pernah dipakai dalam transaksi tidak dihapus agar riwayat tetap utuh. Nonaktifkan barang agar tidak dapat dipilih pada penyewaan baru; riwayat, kode, dan nota lama tetap tersimpan.")
+            opts=db.query("SELECT id,kode,nama,aktif FROM inventaris ORDER BY nama")
             if opts:
                 chosen=st.selectbox("Pilih barang",opts,format_func=lambda x:f'{x["kode"]} — {x["nama"]}')
-                if st.button("Hapus barang terpilih"):
-                    try:
-                        db.execute("DELETE FROM inventaris WHERE id=?",(chosen["id"],)); st.success("Barang dihapus."); st.rerun()
-                    except Exception as e: st.error(f"Barang tidak dapat dihapus karena terkait transaksi: {e}")
+                st.info("Status saat ini: Aktif" if chosen["aktif"] else "Status saat ini: Nonaktif")
+                if chosen["aktif"]:
+                    if st.button("Nonaktifkan barang"):
+                        db.set_inventory_active(chosen["id"], False)
+                        st.success("Barang dinonaktifkan dan tidak akan muncul pada penyewaan baru.")
+                        st.rerun()
+                else:
+                    if st.button("Aktifkan kembali"):
+                        db.set_inventory_active(chosen["id"], True)
+                        st.success("Barang kembali aktif dan dapat dipilih pada penyewaan baru.")
+                        st.rerun()
 
     with tab_kategori:
         with st.form("add_cat",clear_on_submit=True):

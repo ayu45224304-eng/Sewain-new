@@ -5,6 +5,11 @@ from views.common import header, loan_rows
 
 def render():
     header("RETURN PROCESS","Pengembalian","Proses pengembalian barang sewaan dan perbarui stok secara otomatis.")
+    st.caption(
+        f"Aturan keterlambatan per {date.today().isoformat()}: "
+        "status 'Dipinjam' dan tanggal rencana kembali lebih kecil dari hari ini = terlambat; "
+        "jatuh tempo pada hari ini belum terlambat; status 'Dikembalikan' tidak dihitung terlambat."
+    )
     rows=loan_rows("p.status='Dipinjam'")
     if not rows:
         st.success("Tidak ada penyewaan aktif saat ini."); return

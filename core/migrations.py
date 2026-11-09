@@ -6,6 +6,8 @@ def migrate_schema(conn):
     inventaris_columns = {row[1] for row in conn.execute("PRAGMA table_info(inventaris)")}
     if "harga" not in inventaris_columns:
         conn.execute("ALTER TABLE inventaris ADD COLUMN harga INTEGER NOT NULL DEFAULT 0")
+    if "aktif" not in inventaris_columns:
+        conn.execute("ALTER TABLE inventaris ADD COLUMN aktif INTEGER NOT NULL DEFAULT 1")
 
     category_columns = {row[1] for row in conn.execute("PRAGMA table_info(kategori)")}
     initialize_category_codes = "kode" not in category_columns

@@ -38,7 +38,10 @@ Di VS Code, buka terminal baru setelah folder proyek dibuka. Workspace akan memi
 
 Aplikasi akan terbuka di browser. Pengaturan otomatis ini berlaku untuk terminal terintegrasi VS Code; di terminal lain, aktifkan `.venv` terlebih dahulu.
 
-Aplikasi terbuka langsung tanpa halaman login. Database SQLite akan dibuat otomatis pada `data/invenukm.db`.
+Aplikasi terbuka langsung tanpa halaman login. Database SQLite akan dibuat
+otomatis pada `sqlite/invenukm.db`. Jika database versi lama tersedia di
+`data/invenukm.db`, aplikasi menyalinnya ke lokasi baru pada saat dijalankan
+tanpa menghapus database lama. Panduan pengembangan terdapat pada `AGENT.md`.
 
 ## Deploy ke Streamlit Community Cloud
 

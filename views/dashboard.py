@@ -40,6 +40,7 @@ def render():
     cols[1].metric("Total unit",s["unit"],"Seluruh aset")
     cols[2].metric("Sedang disewa",s["dipinjam"],"Transaksi aktif")
     cols[3].metric("Terlambat",s["terlambat"],"Perlu ditindaklanjuti")
+    st.caption("Terlambat dihitung hanya untuk status Dipinjam yang tanggal rencana kembali lebih awal dari tanggal hari ini. Jatuh tempo hari ini belum terlambat.")
     st.markdown("### Aktivitas penyewaan terbaru")
     rows = loan_rows()
     if rows:

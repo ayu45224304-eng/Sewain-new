@@ -444,7 +444,7 @@ def render():
             label_visibility="collapsed",
         )
         barang=db.query(
-            "SELECT id,kode,nama,tersedia,harga FROM inventaris WHERE kategori_id=? ORDER BY nama",
+            "SELECT id,kode,nama,tersedia,harga FROM inventaris WHERE kategori_id=? AND aktif=1 ORDER BY nama",
             (category["id"],),
         )
         barang_tersedia=[item for item in barang if int(item["tersedia"]) > 0]

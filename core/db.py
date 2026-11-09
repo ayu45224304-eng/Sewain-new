@@ -1,12 +1,14 @@
 import sqlite3
 import re
+import tempfile
 from pathlib import Path
 from datetime import date, timedelta
 from core.migrations import migrate_schema
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "invenukm.db"
+DB_DIR = ROOT / "sqlite"
+DB_PATH = DB_DIR / "invenukm.db"
+LEGACY_DB_PATH = ROOT / "data" / "invenukm.db"
 PREFIX_KATEGORI = {
     "Audio": "AUD",
     "Fotografi": "FTG",
@@ -205,6 +207,21 @@ def create_inventory(nama, kategori_id, jumlah, harga, kondisi, lokasi):
         return kode
 
 
+def set_inventory_active(inventory_id, active):
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM inventaris WHERE id=?",
+            (inventory_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("Barang inventaris tidak ditemukan.")
+        conn.execute(
+            "UPDATE inventaris SET aktif=? WHERE id=?",
+            (1 if active else 0, inventory_id),
+        )
+        conn.commit()
+
+
 def update_inventory(inventory_id, nama, kategori_id, jumlah, harga, kondisi, lokasi):
     with connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -278,7 +295,22 @@ def _normalize_inventory_codes(conn):
         conn.execute("UPDATE inventaris SET kode=? WHERE id=?", (kode, item["id"]))
 
 def connect():
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists() and LEGACY_DB_PATH.exists():
+        with tempfile.NamedTemporaryFile(dir=DB_DIR, suffix=".db", delete=False) as temporary:
+            temporary_path = Path(temporary.name)
+        try:
+            source = sqlite3.connect(LEGACY_DB_PATH)
+            destination = sqlite3.connect(temporary_path)
+            try:
+                source.backup(destination)
+            finally:
+                destination.close()
+                source.close()
+            temporary_path.replace(DB_PATH)
+        finally:
+            if temporary_path.exists():
+                temporary_path.unlink()
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON"); migrate_schema(conn)
@@ -302,7 +334,7 @@ def _seed(conn):
       id INTEGER PRIMARY KEY AUTOINCREMENT, kode TEXT UNIQUE NOT NULL,
       nama TEXT NOT NULL, kategori_id INTEGER, jumlah INTEGER NOT NULL DEFAULT 0,
         tersedia INTEGER NOT NULL DEFAULT 0, harga INTEGER NOT NULL DEFAULT 0,
-        kondisi TEXT DEFAULT 'Baik', lokasi TEXT DEFAULT '',
+        kondisi TEXT DEFAULT 'Baik', lokasi TEXT DEFAULT '', aktif INTEGER NOT NULL DEFAULT 1,
       FOREIGN KEY(kategori_id) REFERENCES kategori(id) ON DELETE SET NULL
     );
     CREATE TABLE IF NOT EXISTS peminjaman (
@@ -503,9 +535,11 @@ def create_loan(peminjam, tanggal_pinjam, tanggal_kembali, items, catatan=""):
             jumlah_item[inv_id]=jumlah_item.get(inv_id,0)+int(qty)
         items=list(jumlah_item.items())
         for inv_id, qty in items:
-            row = c.execute("SELECT kode,nama,harga,tersedia FROM inventaris WHERE id=?", (inv_id,)).fetchone()
+            row = c.execute("SELECT kode,nama,harga,tersedia,aktif FROM inventaris WHERE id=?", (inv_id,)).fetchone()
             if not row or qty < 1 or qty > row["tersedia"]:
                 raise ValueError(f"Stok tersedia tidak cukup untuk {row['nama'] if row else 'inventaris'}.")
+            if not row["aktif"]:
+                raise ValueError(f"{row['nama']} sudah dinonaktifkan dan tidak dapat dipinjam.")
         cur = c.execute("INSERT INTO peminjaman(kode,mahasiswa_id,tanggal_pinjam,tanggal_rencana_kembali,status,catatan) VALUES(?,?,?,?,?,?)",
                         (kode,mahasiswa_id,tanggal_pinjam,tanggal_kembali,"Dipinjam",catatan))
         loan_id = cur.lastrowid
